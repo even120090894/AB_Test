@@ -95,18 +95,18 @@ void WorldUpdate (uint3 id : SV_DispatchThreadID)
             float2 pos = id.xy - float2(range / 2, range / 2) + offset;
             pos.x = fmod(pos.x, world_size);
             pos.y = fmod(pos.y, world_size);
-            // tmp += KernelCoreResult[offset].r * oldWorldTexture[pos].r * 100000.0;
-            tmp += KernelCoreResult[offset].r  * 100000.0;
+            tmp += KernelCoreBuffer[i + j * 8 * 8] * oldWorldTexture[pos].r;
+            // tmp += KernelCoreResult[offset].r  * 100000.0;
             // tmp += oldWorldTexture[pos].r * 100000.0;
             // tmp += 0.0001;
         }
     }
     // tmp /= 1000.0;
     // tmp += 0.5;
-    // float r =  clip(growth_mapping(tmp) * 0.1 + oldWorldTexture[id.xy].r, 0.0, 1.0);
+    float r =  clip(growth_mapping(tmp) * 0.1 + oldWorldTexture[id.xy].r, 0.0, 1.0);
     // float r =  clip(growth_mapping(tmp) , 0.0, 1.0);
     // float r =  growth_mapping(tmp) + 1.1;
-    float r =  tmp;
+    // float r =  tmp;
     newWorldTexture[id.xy] = float4(r, 0.0, 0.0, 1.0);
 }
 
