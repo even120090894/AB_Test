@@ -1,0 +1,112 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel WorldUpdate
+#pragma kernel GenerateKernelCore
+#pragma kernel KernelNormalize
+
+// --------------------------------------------------
+// Kernels
+// --------------------------------------------------
+
+// 最大的核半径
+uint max_conv_r;
+uint conv_r;
+float accumulatedResult;
+
+// 设置的时候必须大小为 2*max_conv_r x 2*max_conv_r 的 64 倍向上取整 的大小（可以看dispatch和numthreads的设置）。用来存储卷积核的参数。
+RWTexture2D<float4> KernelCoreResult;
+RWStructuredBuffer<float> KernelCoreBuffer;
+
+float clip(float x, float minVal, float maxVal)
+{
+    return min(max(x, minVal), maxVal);
+}
+float kernel_core(float r)
+{
+    return exp(4.0 - 1/((1.0 - r) * r));
+}
+float kernel_shell(uint x, uint y)
+{
+    float c = 0.0;
+    float2 center = float2(max_conv_r, max_conv_r);
+    float2 pos = float2(x, y);
+    float r = length(center - pos) / conv_r;
+    r = clip(r, 0.0, 1.0);
+    
+    float coreValue = kernel_core(r);
+    // gpu计算中，step的效率比if高
+    c = coreValue * (1.0 - step(1.0, r));
+    
+    return c;
+}
+
+[numthreads(8,8,1)]
+void GenerateKernelCore (uint3 id : SV_DispatchThreadId)
+{
+    // todo 可以将KernelCoreResult的大小设置为max_conv_r * max_conv_r，然后利用rgba四个通道来存储不同的核
+    float c = kernel_shell(id.x, id.y);
+    KernelCoreResult[id.xy] = float4(c, 0.0, 0.0, 0.0);
+    
+    // 这里乘 8*8 是因为dispatch的时候分了8*8个线程块，每个线程块大小为8*8，所以两个8的意义不同
+    KernelCoreBuffer[id.x + id.y * 8 * 8] = c;
+}
+
+
+[numthreads(8,8,1)]
+void KernelNormalize (uint3 id : SV_DispatchThreadID)
+{
+    KernelCoreResult[id.xy] = KernelCoreResult[id.xy] / accumulatedResult;
+    
+    KernelCoreBuffer[id.x + id.y * 8 * 8] = KernelCoreBuffer[id.x + id.y * 8 * 8] / accumulatedResult;
+    
+    // KernelCoreResult[id.xy] *= 255 * 200;// 让显示的图像清晰点，不然太暗了，正常情况下不需要
+}
+
+// --------------------------------------------------
+// World Update
+// --------------------------------------------------
+
+RWTexture2D<float4> oldWorldTexture;
+RWTexture2D<float4> newWorldTexture;
+
+float grow_mu;
+float grow_sigma;
+int world_size;
+
+
+float debug_float;
+
+float growth_mapping(float u)
+{
+    return 2.0 * (exp(-pow(u - grow_mu, 2) / (2 * pow(grow_sigma, 2)))) - 1.0;
+}
+
+[numthreads(8,8,1)]
+void WorldUpdate (uint3 id : SV_DispatchThreadID)
+{
+    uint range = (uint)ceil((2.0 * max_conv_r) / 8.0) * 8;
+    float tmp = 0.0;
+    for (uint i = 0; i < range; i++)
+    {
+        for (uint j = 0; j < range; j++)
+        {
+            // tmp += KernelCoreResult[float2(i, j)].r * oldWorldTexture[id.xy - float2(range/2, range/2) + float2(i, j)].r;
+            // 使用fmod进行取余操作
+            float2 offset = float2(i, j);
+            float2 pos = id.xy - float2(range / 2, range / 2) + offset;
+            pos.x = fmod(pos.x, world_size);
+            pos.y = fmod(pos.y, world_size);
+            // tmp += KernelCoreResult[offset].r * oldWorldTexture[pos].r * 100000.0;
+            tmp += KernelCoreResult[offset].r  * 100000.0;
+            // tmp += oldWorldTexture[pos].r * 100000.0;
+            // tmp += 0.0001;
+        }
+    }
+    // tmp /= 1000.0;
+    // tmp += 0.5;
+    // float r =  clip(growth_mapping(tmp) * 0.1 + oldWorldTexture[id.xy].r, 0.0, 1.0);
+    // float r =  clip(growth_mapping(tmp) , 0.0, 1.0);
+    // float r =  growth_mapping(tmp) + 1.1;
+    float r =  tmp;
+    newWorldTexture[id.xy] = float4(r, 0.0, 0.0, 1.0);
+}
+
