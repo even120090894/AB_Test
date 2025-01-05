@@ -8,6 +8,7 @@ public class DrawOnImage : MonoBehaviour
     public int width = 5;
 
     private RenderTexture saveRT;
+    private Texture2D tmpTexture2D;
 
     void Update () {
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
@@ -58,13 +59,16 @@ public class DrawOnImage : MonoBehaviour
     }
     void ModifyPixelInRenderTexture(RenderTexture renderTexture, Vector2 screenPosition, Color color, int width)
     {
-        // 创建一个新的 Texture2D
-        Texture2D texture2D = new Texture2D(renderTexture.width, renderTexture.height, TextureFormat.RGBA32, false);
+        if (tmpTexture2D == null)
+        {
+            // 仅在第一次使用时创建 Texture2D
+            tmpTexture2D = new Texture2D(renderTexture.width, renderTexture.height, TextureFormat.RGBA32, false);
+        }
 
         // 将 RenderTexture 的内容拷贝到 Texture2D
         RenderTexture.active = renderTexture;
-        texture2D.ReadPixels(new Rect(0, 0, renderTexture.width, renderTexture.height), 0, 0);
-        texture2D.Apply();
+        tmpTexture2D.ReadPixels(new Rect(0, 0, renderTexture.width, renderTexture.height), 0, 0);
+        tmpTexture2D.Apply();
         RenderTexture.active = null;
 
         // 根据画笔大小修改 Texture2D 的像素
@@ -72,18 +76,15 @@ public class DrawOnImage : MonoBehaviour
         {
             for (int j = 0; j < width; j++)
             {
-                texture2D.SetPixel((int)screenPosition.x + i, (int)screenPosition.y + j, color);
+                tmpTexture2D.SetPixel((int)screenPosition.x + i, (int)screenPosition.y + j, color);
             }
         }
-        texture2D.Apply();
+        tmpTexture2D.Apply();
 
         // 将修改后的 Texture2D 内容拷贝回 RenderTexture
         RenderTexture.active = renderTexture;
-        Graphics.Blit(texture2D, renderTexture);
+        Graphics.Blit(tmpTexture2D, renderTexture);
         RenderTexture.active = null;
-
-        // 清理临时创建的 Texture2D
-        Destroy(texture2D);
     }
     void SaveRenderTextureToFile(RenderTexture rt, string fileName)
     {

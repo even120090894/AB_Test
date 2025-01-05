@@ -24,6 +24,7 @@ public class LeniaManager : MonoBehaviour
     // 用来显示kernelCore的材质
     public Material kernelCoreMaterial;
 
+    // 用来挂载上次存储的最后的世界texture，可以视情况去掉    
     public Texture testOldWorldTexture;
 
     // 展示卷积核图像的texture
@@ -67,6 +68,7 @@ public class LeniaManager : MonoBehaviour
         leniaShader.SetInt("world_size", leniaWidth);
         leniaShader.SetInt("max_conv_r", max_conv_r);
 
+        // 此处用来判断是否读取上一次存储的texture图片，可视情况去掉。
         if (testOldWorldTexture == null)
         {
             // 创建旧世界texture
