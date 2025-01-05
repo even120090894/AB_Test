@@ -53,7 +53,7 @@ public class DrawOnImage : MonoBehaviour
 
         // 将 localPosition 转换为以 GameObject 左下角为原点的数值
         Vector2 texturePos = new Vector2(localPoint.x + width / 2 - targetRect.anchoredPosition.x, localPoint.y + height / 2 - targetRect.anchoredPosition.y);
-        texturePos *= targetT.width / width; // raw image 可能本身有缩放
+        texturePos *= targetT.width / width; // raw image 可能本身有缩放。此处场景中用来显示的大小是300*300，实际计算的texture大小是256*256（默认值），所以这里乘的数是 256/300
         return texturePos;
     }
     void ModifyPixelInRenderTexture(RenderTexture renderTexture, Vector2 screenPosition, Color color, int width)
